@@ -17,7 +17,10 @@ def main():
         filename = "metrics.json" if row["task"] == "detect" else "test.json"
         path = args.runs / row["id"] / filename
         if path.is_file():
-            row["evaluation"] = json.loads(path.read_text())
+            evaluation = json.loads(path.read_text())
+            if evaluation["split"] != "test":
+                raise ValueError(f"{path} contains validation results; use a separate run directory")
+            row["evaluation"] = evaluation
             row["status"] = "evaluated"
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(rows, indent=2), encoding="utf-8")

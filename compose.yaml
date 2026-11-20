@@ -1,0 +1,25 @@
+services:
+  api:
+    build: .
+    image: roadcrack-ai:local
+    env_file: .env
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - ./models:/app/models:ro
+      - roadcrack-artifacts:/app/artifacts
+      - ./reports:/app/reports:ro
+  dashboard:
+    build: .
+    image: roadcrack-ai:local
+    entrypoint: [streamlit, run, app/dashboard.py, --server.address, 0.0.0.0, --server.port, "8501", --server.maxUploadSize, "95", --browser.gatherUsageStats, "false"]
+    environment:
+      ROADCRACK_API: http://api:8000
+    ports:
+      - "127.0.0.1:8501:8501"
+    volumes:
+      - ./reports:/app/reports:ro
+    depends_on:
+      - api
+volumes:
+  roadcrack-artifacts:

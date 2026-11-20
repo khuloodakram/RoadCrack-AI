@@ -11,3 +11,4 @@ runs/
 artifacts/
 *.pt
 *.pth
+reports/evaluation.json
