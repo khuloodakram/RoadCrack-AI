@@ -1,0 +1,4 @@
+image,annotation,source,group,split,negative
+raw/site-a/road-001.jpg,raw/site-a/road-001.xml,RDD2022/Japan,site-a,,false
+raw/site-b/road-003.jpg,,reviewed-local,site-b,,true
+raw/site-c/road-010.jpg,raw/site-c/road-010.xml,independent-local,site-c,test,false
