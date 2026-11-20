@@ -18,6 +18,8 @@ h1{margin:0;font-size:clamp(2rem,6vw,4rem)}p{line-height:1.7}section,figure{marg
 <div class="controls">
 <input id="file" type="file" accept="image/jpeg,image/png,image/webp,video/*,.mp4,.webm,.mov" aria-label="رفع صورة أو فيديو الطريق">
 <button id="camera" type="button">تشغيل الكاميرا</button>
+<input id="capture" type="file" accept="video/*" capture="environment" hidden>
+<button id="record" type="button" hidden>تصوير فيديو بتطبيق الكاميرا</button>
 <button id="stop" type="button" hidden>إيقاف الكاميرا</button>
 <label for="sensitivity">الحساسية</label>
 <input id="sensitivity" type="range" min="1" max="5" value="3">
@@ -35,7 +37,7 @@ h1{margin:0;font-size:clamp(2rem,6vw,4rem)}p{line-height:1.7}section,figure{marg
 </main>
 <script>
 const byId = id => document.getElementById(id);
-const file = byId('file'), source = byId('original'), result = byId('result');
+const file = byId('file'), capture = byId('capture'), source = byId('original'), result = byId('result');
 const run = byId('run'), status = byId('status'), download = byId('download');
 const context = source.getContext('2d', {willReadFrequently: true});
 const video = byId('video'), camera = byId('camera'), stop = byId('stop');
@@ -114,11 +116,11 @@ function showVideo(kind) {
   download.textContent = snapshotLabel;
 }
 
-file.addEventListener('change', async () => {
-  const current = reset();
-  const selected = file.files[0];
-  file.value = '';
+async function openFile(event) {
+  const input = event.currentTarget, selected = input.files[0];
+  input.value = '';
   if (!selected) return;
+  const current = reset();
   if (selected.type.startsWith('video/') || /\.(mp4|webm|mov)$/i.test(selected.name)) {
     showVideo('video');
     sourceURL = URL.createObjectURL(selected);
@@ -130,12 +132,25 @@ file.addEventListener('change', async () => {
     status.textContent = 'اختر صورة أصغر من 20 ميغابايت.';
     return;
   }
+  let imageURL, bitmap;
   try {
-    const bitmap = await createImageBitmap(selected);
-    if (current !== selection) { bitmap.close(); return; }
-    resize(bitmap.width, bitmap.height, 1400);
-    context.drawImage(bitmap, 0, 0, source.width, source.height);
-    bitmap.close();
+    if (window.createImageBitmap) {
+      try { bitmap = await createImageBitmap(selected); } catch { /* Try the native image decoder below. */ }
+    }
+    if (current !== selection) return;
+    let image = bitmap;
+    if (!image) {
+      imageURL = URL.createObjectURL(selected);
+      image = await new Promise((resolve, reject) => {
+        const element = new Image();
+        element.onload = () => resolve(element);
+        element.onerror = reject;
+        element.src = imageURL;
+      });
+    }
+    if (current !== selection) return;
+    resize(image.naturalWidth || image.width, image.naturalHeight || image.height, 1400);
+    context.drawImage(image, 0, 0, source.width, source.height);
     mode = 'image';
     views.hidden = false;
     run.disabled = false;
@@ -143,8 +158,16 @@ file.addEventListener('change', async () => {
     status.textContent = 'الصورة جاهزة للتحليل.';
   } catch {
     if (current === selection) status.textContent = 'تعذر قراءة الصورة. جرّب JPEG أو PNG أو WebP.';
+  } finally {
+    if (imageURL) URL.revokeObjectURL(imageURL);
+    if (bitmap) bitmap.close();
   }
-});
+}
+file.addEventListener('change', openFile);
+capture.addEventListener('change', openFile);
+const record = byId('record');
+record.hidden = !('capture' in capture);
+record.addEventListener('click', () => capture.click());
 
 video.addEventListener('loadeddata', drawVideoFrame);
 video.addEventListener('seeked', drawVideoFrame);
@@ -158,7 +181,7 @@ video.addEventListener('error', () => {
 camera.addEventListener('click', async () => {
   const current = reset();
   if (!navigator.mediaDevices?.getUserMedia) {
-    status.textContent = 'الكاميرا تحتاج إلى صفحة HTTPS أو ملف محلي يدعمه المتصفح. يمكنك تصوير فيديو بتطبيق الكاميرا ثم اختياره هنا.';
+    status.textContent = 'افتح المعاينة عبر HTTPS لتشغيل الكاميرا المباشرة، أو اختر «تصوير فيديو بتطبيق الكاميرا» إن ظهر هذا الخيار.';
     return;
   }
   camera.disabled = true;
