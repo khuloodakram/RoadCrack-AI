@@ -1,0 +1,11 @@
+id,task,model,size,batch,lr,loss,augmentation,tile,overlap,threshold,status
+det-01,detect,YOLO26s,640,8,0.001,default,off,,,0.25,planned
+det-02,detect,YOLO11s,640,8,0.001,default,off,,,0.25,planned
+det-03,detect,YOLO26m,640,8,0.001,default,off,,,0.25,planned
+det-04,detect,selected-baseline,960,8,0.001,default,off,,,0.25,planned
+det-05,detect,selected-baseline,640,4,0.001,default,off,,,0.25,planned
+det-06,detect,selected-baseline,640,8,0.0003,default,horizontal-light,,,0.25,planned
+seg-01,segment,UnetPlusPlus,512,4,0.0003,bce-dice,off,512,96,val,planned
+seg-02,segment,DeepLabV3Plus,512,4,0.0003,bce-dice,off,512,96,val,planned
+seg-03,segment,selected-baseline,512,4,0.0003,bce,off,512,96,val,planned
+seg-04,segment,selected-baseline,512,4,0.0003,bce-dice,horizontal,512,128,val,planned
