@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RoadCrack AI | تجربة الصور</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f5f5ee;color:#202c24;font-family:system-ui,sans-serif}
+main{max-width:1060px;margin:auto;padding:24px}header{background:#19362d;color:#fafbf3;padding:32px;border-radius:18px;border-bottom:5px solid #c5df77}
+h1{margin:0;font-size:clamp(2rem,6vw,4rem)}p{line-height:1.7}section,figure{margin:16px 0;padding:20px;background:#fff;border-radius:14px}
+.controls{display:flex;align-items:center;flex-wrap:wrap;gap:14px}button,.pick,a{font:inherit;background:#19362d;color:white;border:0;padding:10px 14px;border-radius:8px;text-decoration:none;cursor:pointer}button:disabled{opacity:.5}input[type=file]{max-width:100%}input[type=range]{accent-color:#19362d}
+.views{display:grid;grid-template-columns:1fr 1fr;gap:16px}canvas{display:block;max-width:100%;width:100%;height:auto;margin-top:10px;border-radius:6px}figcaption{font-weight:700}[hidden]{display:none!important}
+@media(max-width:620px){.views{grid-template-columns:1fr}main{padding:12px}}
+</style>
+<main>
+<header><h1 dir="ltr">RoadCrack AI</h1><p>معاينة تشققات الطرق في الصور</p></header>
+<section>
+<p>ارفع صورة من جهازك. تميّز هذه المعاينة الخطوط الداكنة الرفيعة التي قد تكون تشققات باستخدام معالجة الصورة داخل المتصفح. قد تبرز الظلال أو فواصل الرصف أيضاً. تبقى الصورة على جهازك.</p>
+<div class="controls">
+<input id="file" type="file" accept="image/jpeg,image/png,image/webp" aria-label="رفع صورة الطريق">
+<label for="sensitivity">الحساسية</label>
+<input id="sensitivity" type="range" min="1" max="5" value="3">
+<button id="run" disabled>تحليل الصورة</button>
+<a id="download" download="roadcrack-preview.png" hidden>حفظ المعاينة</a>
+</div>
+<p id="status" role="status">اختر صورة JPEG أو PNG أو WebP.</p>
+</section>
+<div class="views" id="views" hidden>
+<figure><figcaption>الصورة الأصلية</figcaption><canvas id="original"></canvas></figure>
+<figure><figcaption>المواضع المرشحة</figcaption><canvas id="result"></canvas></figure>
+</div>
+<p>معاينة للصور فقط. يحتاج تصنيف أنواع التشققات وتحليل الفيديو إلى نموذج مدرّب في التطبيق الكامل.</p>
+</main>
+<script>
+const byId = id => document.getElementById(id);
+const file = byId('file'), source = byId('original'), result = byId('result');
+const run = byId('run'), status = byId('status'), download = byId('download');
+const context = source.getContext('2d', {willReadFrequently: true});
+let Selection = 0, resultURL;
+function clearResult() {
+  if (resultURL) URL.revokeObjectURL(resultURL);
+  resultURL = undefined;
+  download.hidden = true;
+}
+file.addEventListener('change', async () => {
+  const selection = ++Selection;
+  run.disabled = true;
+  byId('views').hidden = true;
+  clearResult();
+  const selected = file.files[0];
+  if (!selected) return;
+  if (selected.size > 20 * 1024 * 1024) {
+    status.textContent = 'اختر صورة أصغر من 20 ميغابايت.';
+    return;
+  }
+  try {
+    const bitmap = await createImageBitmap(selected);
+    if (selection !== Selection) { bitmap.close(); return; }
+    const scale = Math.min(1, 1400 / Math.max(bitmap.width, bitmap.height));
+    source.width = Math.max(1, Math.round(bitmap.width * scale));
+    source.height = Math.max(1, Math.round(bitmap.height * scale));
+    context.drawImage(bitmap, 0, 0, source.width, source.height);
+    bitmap.close();
+    result.width = source.width;
+    result.height = source.height;
+    byId('views').hidden = false;
+    run.disabled = false;
+    status.textContent = 'الصورة جاهزة للتحليل.';
+  } catch {
+    if (selection === Selection) status.textContent = 'تعذر قراءة الصورة. جرّب JPEG أو PNG أو WebP.';
+  }
+});
+run.addEventListener('click', () => {
+  const selection = Selection;
+  clearResult();
+  const {width, height} = source;
+  const frame = context.getImageData(0, 0, width, height);
+  const pixels = frame.data, gray = new Uint8Array(width * height);
+  const candidate = new Uint8Array(gray.length);
+  const contrast = 32 - 4 * Number(byId('sensitivity').value);
+  for (let i = 0; i < gray.length; i++) {
+    const offset = i * 4;
+    gray[i] = .299 * pixels[offset] + .587 * pixels[offset + 1] + .114 * pixels[offset + 2];
+  }
+  for (let y = 4; y < height - 4; y++) {
+    for (let x = 4; x < width - 4; x++) {
+      const i = y * width + x;
+      for (const direction of [1, width, width - 1, width + 1]) {
+        if (Math.min(gray[i - direction * 4], gray[i + direction * 4]) - gray[i] >= contrast) {
+          candidate[i] = 1;
+          break;
+        }
+      }
+    }
+  }
+  let highlighted = 0;
+  for (let y = 1; y < height - 1; y++) {
+    for (let x = 1; x < width - 1; x++) {
+      const i = y * width + x;
+      if (!candidate[i]) continue;
+      const neighbors = candidate[i-1]+candidate[i+1]+candidate[i-width]+candidate[i+width]+
+        candidate[i-width-1]+candidate[i-width+1]+candidate[i+width-1]+candidate[i+width+1];
+      if (neighbors < 2) continue;
+      highlighted++;
+      pixels[i * 4] = 248;
+      pixels[i * 4 + 1] = 96;
+      pixels[i * 4 + 2] = 51;
+    }
+  }
+  result.getContext('2d').putImageData(frame, 0, 0);
+  status.textContent = highlighted ? 'تم تلوين المواضع المرشحة بالبرتقالي.' : 'لم تُبرز المعاينة أي مواضع على الحساسية الحالية.';
+  result.toBlob(blob => {
+    if (!blob || selection !== Selection) return;
+    clearResult();
+    resultURL = URL.createObjectURL(blob);
+    download.href = resultURL;
+    download.hidden = false;
+  }, 'image/png');
+});
+</script>
+</html>
