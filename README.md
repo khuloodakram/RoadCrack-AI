@@ -2,6 +2,10 @@
 
 RoadCrack AI detects and classifies visible road damage in images and video and optionally segments crack pixels. It includes a PyTorch training workflow, a FastAPI service and an Arabic Streamlit dashboard. The app needs trained road-damage weights supplied by the operator.
 
+## معاينة بدون تثبيت
+
+نزّل [ملف المعاينة](demo/index.html) وافتحه في المتصفح. اختر صورة أو فيديو من جهازك أو اضغط «تشغيل الكاميرا» واسمح بالوصول إليها. إذا منع المتصفح الكاميرا عند فتح ملف محلي، صوّر الفيديو بتطبيق الكاميرا ثم اختره في المعاينة، أو افتح المعاينة عبر HTTPS. تحفظ المعاينة الإطار الحالي كصورة PNG وتعالج الملفات على جهازك. تعتمد على تباين الصورة لإبراز الخطوط المحتملة.
+
 ## التشغيل
 
 يتطلب المسار المحلي Python 3.12. يستخدم التثبيت الافتراضي PyTorch للمعالج. شغّل الأوامر من جذر المستودع.
